@@ -5,7 +5,9 @@ using System.Collections.Generic;
 public class actorLOD : MonoBehaviour { 
 
 	//VARIABLES
-	public float nDistance;
+	public float distance;
+	public float distTimer = 0;
+	public float randUpdateWait;
 
 	//LOD class
 	[System.Serializable]

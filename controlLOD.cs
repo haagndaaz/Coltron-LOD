@@ -8,35 +8,41 @@ public class controlLOD : MonoBehaviour {
 
 	//Timer variables
 	public float timer;
-	public List<float> distTimers;
 	public float updateWait;
-	public List<float> randUpdateWait;
 	public float randAmount;
 	public Vector3 oldPosition;
 
 	//Distance things
 	public float maxDistance;
+	public float errorAllowance;
 
 	//object lists
 	public List<GameObject> closeActors;
-	public GameObject[] actors;
+	public List<GameObject> actors;
 
 	void GetActorValues ()
 	{
 		//first clear List
-		randUpdateWait.Clear();
+		//randUpdateWait.Clear();
 
 		//Set a list of random values for randUpdateWait
-		for (int i = 0; i < closeActors.Count; i++)
+		for (int i = 0; i < actors.Count; i++)
 		{
-			randUpdateWait.Add( Random.Range(updateWait - randAmount, updateWait + randAmount) );
+			actors[i].GetComponent<actorLOD>().randUpdateWait = Random.Range(updateWait - randAmount, updateWait + randAmount);
 		}
 	}
 
 	// Use this for initialization
 	void Start () {
 		//setup list of all objects with actorLOD component
-	    actors = GameObject.FindGameObjectsWithTag("actorLOD");
+	    GameObject[] tempActors = GameObject.FindGameObjectsWithTag("actorLOD");
+		foreach (GameObject o in tempActors)
+		{
+			if (o.GetComponent<actorLOD>())
+			{
+				actors.Add ( o );
+			}
+		}
 
 		//initial object swap
 		getActors();
@@ -46,7 +52,7 @@ public class controlLOD : MonoBehaviour {
 		{
 			//checkDist(i);
 			float distanceTemp = Vector3.Distance(closeActors[i].transform.position, transform.position);
-			closeActors[i].GetComponent<actorLOD>().nDistance = distanceTemp;
+			closeActors[i].GetComponent<actorLOD>().distance = distanceTemp;
 			
 			setLOD(closeActors[i]);
 		}
@@ -57,11 +63,11 @@ public class controlLOD : MonoBehaviour {
 		//only run timers if player is movinf
 		if (transform.position != oldPosition)
 		{
-			//set timer limit to largest randUpdateWait if the list is filled, otherwise use UpdateWait
+			//set timer limit to largest number if the list is filled, otherwise use UpdateWait
 			float maxTime = 0;
-			if (randUpdateWait.Count != 0)
+			if (closeActors.Count != 0)
 			{
-				maxTime = Mathf.Max(randUpdateWait.ToArray());
+				maxTime = updateWait + randAmount;
 			}
 			else
 			{
@@ -81,16 +87,18 @@ public class controlLOD : MonoBehaviour {
 			//distance timers
 			for (int i = 0; i < closeActors.Count; i++)
 			{
-				distTimers[i] += Time.deltaTime;
-				if ( distTimers[i] > this.randUpdateWait[i] )
+				actorLOD actorScript = closeActors[i].GetComponent<actorLOD>();
+
+				actorScript.distTimer += Time.deltaTime;
+				if ( actorScript.distTimer > actorScript.randUpdateWait )
 				{
 					//checkDist(i);
 					float distanceTemp = Vector3.Distance(closeActors[i].transform.position, transform.position);
-					closeActors[i].GetComponent<actorLOD>().nDistance = distanceTemp;
+					closeActors[i].GetComponent<actorLOD>().distance = distanceTemp;
 
 					setLOD(closeActors[i]);
 					
-					distTimers[i] = 0;
+					actorScript.distTimer = 0;
 				}
 			}
 		}
@@ -101,7 +109,6 @@ public class controlLOD : MonoBehaviour {
 	{
 		//first clear lists
 		closeActors.Clear();
-		distTimers.Clear();
 
 		//get objects within range with a collider attached
 		Collider[] hitActors = Physics.OverlapSphere(transform.position, maxDistance);
@@ -113,7 +120,6 @@ public class controlLOD : MonoBehaviour {
 			{
 				//add object to closeActors and create a timer for it
 				closeActors.Add(c.gameObject);
-				distTimers.Add(0);
 			}
 		}
 	}
@@ -128,7 +134,7 @@ public class controlLOD : MonoBehaviour {
 		for (int i = 0; i < actorScript.LODs.Length; i++)
 		{
 			//check to see if within distance to swap LOD
-			if ( actorScript.nDistance < (this.maxDistance * (actorScript.LODs[i].distancePercentage * 0.01)) )
+			if ( actorScript.distance < (this.maxDistance * (actorScript.LODs[i].distancePercentage * 0.01)) )
 			{
 				//cycle through and turn on mesh renderers
 				foreach ( GameObject o in actorScript.LODs[i].lodObjects )
@@ -148,7 +154,7 @@ public class controlLOD : MonoBehaviour {
 			//check to see if within the range of the LOD below it, then hide objects
 			if (i != 0 )
 			{
-				if ( actorScript.nDistance < (this.maxDistance * (actorScript.LODs[i-1].distancePercentage * 0.01)) )
+				if ( actorScript.distance < (this.maxDistance * (actorScript.LODs[i-1].distancePercentage * 0.01)) )
 				{
 					//cycle through and turn on mesh renderers
 					foreach ( GameObject o in actorScript.LODs[i].lodObjects )
