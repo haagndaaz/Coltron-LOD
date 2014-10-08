@@ -6,6 +6,7 @@ public class actorLOD : MonoBehaviour {
 
 	//VARIABLES
 	public float distance;
+	public float oldDistance;
 	public float distTimer = 0;
 	public float randUpdateWait;
 
@@ -16,6 +17,7 @@ public class actorLOD : MonoBehaviour {
 		[SerializeField] public string name;
 		[SerializeField] public GameObject[] lodObjects;
 		[SerializeField] public float distancePercentage;
+		[SerializeField] public float nDistance;
 		[SerializeField] public List<Material> origMaterials;
 		[SerializeField] public float[] origAlpha;
 		[SerializeField] public bool fade = true;
@@ -41,6 +43,21 @@ public class actorLOD : MonoBehaviour {
 
 				//cycle through all objects in each LOD and turn off renderer
 				c.lodObjects[i].renderer.enabled = false;
+			}
+
+			//turn all objects alpha to totally faded to begin
+			foreach (GameObject o in c.lodObjects)
+			{
+				if (o.renderer.material.HasProperty("_Cutoff"))
+				{
+					o.renderer.material.SetFloat("_Cutoff", 1);
+				}
+				else
+				{
+					Color oldColor = o.renderer.material.GetColor("_Color");
+					Color newColor = new Color( oldColor.r, oldColor.g, oldColor.b, 0);
+					o.renderer.material.color = newColor;
+				}
 			}
 		}
 	}
