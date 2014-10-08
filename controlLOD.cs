@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 
@@ -14,7 +14,8 @@ public class controlLOD : MonoBehaviour {
 
 	//Distance things
 	public float maxDistance;
-	public float errorAllowance;
+	public float fadeDistance = 5;
+	public float errorAllowance = 2;
 
 	//object lists
 	public List<GameObject> closeActors;
@@ -96,9 +97,75 @@ public class controlLOD : MonoBehaviour {
 					float distanceTemp = Vector3.Distance(closeActors[i].transform.position, transform.position);
 					closeActors[i].GetComponent<actorLOD>().distance = distanceTemp;
 
-					setLOD(closeActors[i]);
+					//setLOD(closeActors[i]);
 					
 					actorScript.distTimer = 0;
+				}
+			}
+		}
+
+		//FADING
+		for (int i = 0; i < closeActors.Count; i++)
+		{
+			//get actorLOD script reference
+			actorLOD actorScript = closeActors[i].GetComponent<actorLOD>();
+
+			if ( actorScript.oldDistance != actorScript.distance)
+			{
+				for (int l = 0; l < actorScript.LODs.Length; l++)
+				{
+					//lerp oldDistance to new distance so it looks like a smooth transition
+					actorScript.oldDistance = Mathf.Lerp( actorScript.oldDistance, actorScript.distance, Time.deltaTime );
+
+					//calculate nDistance differently if it is the last LOD in the list
+					if ( l == actorScript.LODs.Length - 1 )
+					{
+						float newMaxDistance = (float) ( maxDistance * (actorScript.LODs[l].distancePercentage * 0.01) ) - errorAllowance;
+						float newMinDistance = (float) ( maxDistance * (actorScript.LODs[l].distancePercentage * 0.01) ) - fadeDistance - errorAllowance;
+
+						actorScript.LODs[l].nDistance = (float) Mathf.Clamp01( (actorScript.oldDistance - newMaxDistance) / (newMinDistance - newMaxDistance) );
+					}
+					else // calculate the nDistance this way fr every other LOD
+					{
+						float newMaxDistance = (float) ( maxDistance * (actorScript.LODs[l].distancePercentage * 0.01) ) - errorAllowance;
+						float newMinDistance = (float) ( maxDistance * (actorScript.LODs[l].distancePercentage * 0.01) ) + fadeDistance - errorAllowance;
+						float newMaxDistanceLast = (float) ( maxDistance * (actorScript.LODs[l].distancePercentage * 0.01) ) + (fadeDistance/2) - errorAllowance;
+						
+						actorScript.LODs[l].nDistance = (float) Mathf.Clamp01( (actorScript.oldDistance - newMinDistance) / (newMaxDistance - newMinDistance) );
+						actorScript.LODs[l+1].nDistance = (float) Mathf.Clamp01( (actorScript.oldDistance - newMaxDistanceLast) / (newMinDistance - newMaxDistanceLast) );
+					}
+
+					//affect the materials on the objects
+					if ( actorScript.LODs[l].nDistance > 0.05 & actorScript.LODs[l].nDistance < 0.95 )
+					{
+						//cycle through and turn on mesh renderers
+						foreach ( GameObject o in actorScript.LODs[l].lodObjects )
+						{
+							o.renderer.enabled = true;
+
+							foreach (Material m in o.renderer.materials)
+							{
+								if (m.HasProperty("_Cutoff")) //code for fading cutout shaders
+								{
+									m.SetFloat("_Cutoff", 1 - actorScript.LODs[l].nDistance);
+								}
+								else //code for fading regular alpha shaders
+								{
+									Color oldColor = m.GetColor("_Color");
+									Color newColor = new Color( oldColor.r, oldColor.g, oldColor.b, actorScript.LODs[l].nDistance);
+									m.color = newColor;
+								}
+							}
+						}
+					}
+					if ( actorScript.LODs[l].nDistance < 0.05 )
+					{
+						//cycle through and turn off mesh renderers
+						foreach ( GameObject o in actorScript.LODs[l].lodObjects )
+						{
+							o.renderer.enabled = false;
+						}
+					}
 				}
 			}
 		}
@@ -134,7 +201,7 @@ public class controlLOD : MonoBehaviour {
 		for (int i = 0; i < actorScript.LODs.Length; i++)
 		{
 			//check to see if within distance to swap LOD
-			if ( actorScript.distance < (this.maxDistance * (actorScript.LODs[i].distancePercentage * 0.01)) )
+			if ( actorScript.distance < (this.maxDistance * (actorScript.LODs[i].distancePercentage * 0.01)) - errorAllowance )
 			{
 				//cycle through and turn on mesh renderers
 				foreach ( GameObject o in actorScript.LODs[i].lodObjects )
@@ -154,7 +221,7 @@ public class controlLOD : MonoBehaviour {
 			//check to see if within the range of the LOD below it, then hide objects
 			if (i != 0 )
 			{
-				if ( actorScript.distance < (this.maxDistance * (actorScript.LODs[i-1].distancePercentage * 0.01)) )
+				if ( actorScript.distance < (this.maxDistance * (actorScript.LODs[i-1].distancePercentage * 0.01)) - errorAllowance )
 				{
 					//cycle through and turn on mesh renderers
 					foreach ( GameObject o in actorScript.LODs[i].lodObjects )
