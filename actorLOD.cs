@@ -58,6 +58,8 @@ public class actorLOD : MonoBehaviour {
 					Color newColor = new Color( oldColor.r, oldColor.g, oldColor.b, 0);
 					o.renderer.material.color = newColor;
 				}
+
+				o.renderer.enabled = false;
 			}
 		}
 	}
