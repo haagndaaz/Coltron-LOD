@@ -3,48 +3,50 @@ using System.Collections;
 using System.Collections.Generic;
 
 public class controlLOD : MonoBehaviour {
-
+	
 	//VARIABLES
-
+	
 	//Timer variables
 	public float timer;
 	public float updateWait;
 	public float randAmount;
 	public Vector3 oldPosition;
-
+	
 	//Distance things
 	public float maxDistance;
 	public float fadeDistance = 5;
 	public float errorAllowance = 2;
-
+	
 	//object lists
 	public List<GameObject> closeActors;
 	public List<GameObject> actors;
-
+	
 	void GetActorValues ()
 	{
 		//first clear List
 		//randUpdateWait.Clear();
-
+		
 		//Set a list of random values for randUpdateWait
 		for (int i = 0; i < actors.Count; i++)
 		{
 			actors[i].GetComponent<actorLOD>().randUpdateWait = Random.Range(updateWait - randAmount, updateWait + randAmount);
 		}
 	}
-
+	
 	// Use this for initialization
 	void Start () {
 		//setup list of all objects with actorLOD component
-	    GameObject[] tempActors = GameObject.FindGameObjectsWithTag("actorLOD");
+		GameObject[] tempActors = GameObject.FindGameObjectsWithTag("actorLOD");
 		foreach (GameObject o in tempActors)
 		{
 			if (o.GetComponent<actorLOD>())
 			{
+				o.GetComponent<actorLOD>().distance = maxDistance;
+				o.GetComponent<actorLOD>().oldDistance = maxDistance;
 				actors.Add ( o );
 			}
 		}
-
+		
 		//initial object swap
 		getActors();
 		GetActorValues();
@@ -74,7 +76,7 @@ public class controlLOD : MonoBehaviour {
 			{
 				maxTime = updateWait;
 			}
-
+			
 			//Timer for getActors
 			timer += Time.deltaTime;
 			if (timer > maxTime)
@@ -84,45 +86,45 @@ public class controlLOD : MonoBehaviour {
 				oldPosition = transform.position;
 				timer = 0;
 			}
-
+			
 			//distance timers
 			for (int i = 0; i < closeActors.Count; i++)
 			{
 				actorLOD actorScript = closeActors[i].GetComponent<actorLOD>();
-
+				
 				actorScript.distTimer += Time.deltaTime;
 				if ( actorScript.distTimer > actorScript.randUpdateWait )
 				{
 					//checkDist(i);
 					float distanceTemp = Vector3.Distance(closeActors[i].transform.position, transform.position);
 					closeActors[i].GetComponent<actorLOD>().distance = distanceTemp;
-
+					
 					//setLOD(closeActors[i]);
 					
 					actorScript.distTimer = 0;
 				}
 			}
 		}
-
+		
 		//FADING
 		for (int i = 0; i < closeActors.Count; i++)
 		{
 			//get actorLOD script reference
 			actorLOD actorScript = closeActors[i].GetComponent<actorLOD>();
-
+			
 			if ( actorScript.oldDistance != actorScript.distance)
 			{
 				for (int l = 0; l < actorScript.LODs.Length; l++)
 				{
 					//lerp oldDistance to new distance so it looks like a smooth transition
 					actorScript.oldDistance = Mathf.Lerp( actorScript.oldDistance, actorScript.distance, Time.deltaTime );
-
+					
 					//calculate nDistance differently if it is the last LOD in the list
 					if ( l == actorScript.LODs.Length - 1 )
 					{
 						float newMaxDistance = (float) ( maxDistance * (actorScript.LODs[l].distancePercentage * 0.01) ) - errorAllowance;
 						float newMinDistance = (float) ( maxDistance * (actorScript.LODs[l].distancePercentage * 0.01) ) - fadeDistance - errorAllowance;
-
+						
 						actorScript.LODs[l].nDistance = (float) Mathf.Clamp01( (actorScript.oldDistance - newMaxDistance) / (newMinDistance - newMaxDistance) );
 					}
 					else // calculate the nDistance this way fr every other LOD
@@ -134,7 +136,7 @@ public class controlLOD : MonoBehaviour {
 						actorScript.LODs[l].nDistance = (float) Mathf.Clamp01( (actorScript.oldDistance - newMinDistance) / (newMaxDistance - newMinDistance) );
 						actorScript.LODs[l+1].nDistance = (float) Mathf.Clamp01( (actorScript.oldDistance - newMaxDistanceLast) / (newMinDistance - newMaxDistanceLast) );
 					}
-
+					
 					//affect the materials on the objects
 					if ( actorScript.LODs[l].nDistance > 0.05 & actorScript.LODs[l].nDistance < 0.95 )
 					{
@@ -142,7 +144,7 @@ public class controlLOD : MonoBehaviour {
 						foreach ( GameObject o in actorScript.LODs[l].lodObjects )
 						{
 							o.renderer.enabled = true;
-
+							
 							foreach (Material m in o.renderer.materials)
 							{
 								if (m.HasProperty("_Cutoff")) //code for fading cutout shaders
@@ -166,20 +168,29 @@ public class controlLOD : MonoBehaviour {
 							o.renderer.enabled = false;
 						}
 					}
+
+					if ( actorScript.LODs[l].nDistance > 1 )
+					{
+						//cycle through and turn off mesh renderers
+						foreach ( GameObject o in actorScript.LODs[l].lodObjects )
+						{
+							o.renderer.enabled = true;
+						}
+					}
 				}
 			}
 		}
 	}
-
+	
 	//get all actors within maxDistance radius
 	void getActors ()
 	{
 		//first clear lists
 		closeActors.Clear();
-
+		
 		//get objects within range with a collider attached
 		Collider[] hitActors = Physics.OverlapSphere(transform.position, maxDistance);
-
+		
 		//assign objects with actor LOD to closeActors
 		foreach (Collider c in hitActors)
 		{
@@ -190,13 +201,13 @@ public class controlLOD : MonoBehaviour {
 			}
 		}
 	}
-
+	
 	//basic LOD swap
 	void setLOD (GameObject LODobj)
 	{
 		//get actorLOD script reference
 		actorLOD actorScript = LODobj.GetComponent<actorLOD>();
-
+		
 		//cycle through LODS based on distance
 		for (int i = 0; i < actorScript.LODs.Length; i++)
 		{
@@ -217,7 +228,7 @@ public class controlLOD : MonoBehaviour {
 					o.renderer.enabled = false;
 				}
 			}
-
+			
 			//check to see if within the range of the LOD below it, then hide objects
 			if (i != 0 )
 			{
